@@ -5,9 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <meta name="author" content="毛静文,Momo">
-  <meta name="keywords" content="m3u8 下载工具, 毛静文的博客,Momo's Blog">
-  <meta name="description" content="m3u8 下载工具,无需下载软件,打开网站即可下载,自动检测,一键下载">
+  <meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,minimal-ui">
+    <meta name="referrer" content="no-referrer">
   <title>m3u8 downloader</title>
   <style>
   /*全局设置*/
@@ -349,6 +348,16 @@
   }
 
   </style>
+  <style type="text/css">
+    .video-wrapper {display:flex;}
+    #mse {
+      flex:auto;
+      height: 500px;
+    }
+  </style>
+  <script type="text/javascript">
+    window.addEventListener('resize',function(){document.getElementById('mse').style.height=window.innerHeight+'px';});
+  </script>
 </head>
 
 <body>
@@ -361,6 +370,9 @@
     <img src="https://upyun.luckly-mjw.cn/Assets/blog/m3u8-downloader-121-75.jpeg" alt="m3u8 视频下载工具" title="logo"/>
     <a target="_blank" href="https://blog.luckly-mjw.cn/tool-show/m3u8-downloader/index.html">点击跳转</a>
   </h1>
+</div>
+<div class="video-wrapper">
+  <div id="mse"></div>
 </div>
 <section id="m-app" v-cloak>
   <!--顶部操作提示-->
@@ -382,7 +394,9 @@
   <!--文件载入-->
   <div class="m-p-temp-url">测试链接：https://upyun.luckly-mjw.cn/Assets/media-source/example/media/index.m3u8</div>
   <section class="m-p-input-container">
-    <input type="text" v-model="url" :disabled="downloading" placeholder="请输入 m3u8 链接">
+    <input type="text" v-model="url" :disabled="downloading && !(finishNum === rangeDownload.targetSegment && rangeDownload.targetSegment > 0)" placeholder="请输入 m3u8 链接">
+
+    <div @click="videoPlayer">播放视频</div>
 
     <!--范围查询-->
     <template v-if="!downloading || rangeDownload.isShowRange">
@@ -398,7 +412,7 @@
       <div @click="getM3U8(false)">原格式下载</div>
       <div @click="getMP4">转码为MP4下载</div>
     </template>
-    <div v-else-if="finishNum === rangeDownload.targetSegment && rangeDownload.targetSegment > 0" class="disable">下载完成</div>
+    <div v-else-if="finishNum === rangeDownload.targetSegment && rangeDownload.targetSegment > 0" @click="reset">下载完成，点击清空连接</div>
     <div v-else @click="togglePause">{{ isPause ? '恢复下载' : '暂停下载' }}</div>
   </section>
   <div v-if="!downloading && isSupperStreamWrite" class="m-p-stream" @click="streamDownload(false)">特大视频原格式下载，边下载边保存，彻底解决大文件下载内存不足问题 </div>
@@ -419,6 +433,10 @@
     </section>
   </template>
 </section>
+
+<!-- 引入西瓜视频 -->
+<script src="https://unpkg.byted-static.com/xgplayer/2.31.2/browser/index.js" charset="utf-8"></script>
+<script src="https://unpkg.byted-static.com/xgplayer-hls.js/2.2.2/browser/index.js" charset="utf-8"></script>
 </body>
 
 <script>
@@ -437,7 +455,6 @@ var _hmt = _hmt || [];
 <script src="https://upyun.luckly-mjw.cn/lib/stream-saver.js"></script>
 
 <script>
-
 // script注入
 document.getElementById('m-loading') && document.getElementById('m-loading').remove()
 new Vue({
@@ -445,7 +462,7 @@ new Vue({
 
   data() {
     return {
-      url: '', // 在线链接
+      url: 'https://upyun.luckly-mjw.cn/Assets/media-source/example/media/index.m3u8', // 在线链接
       tips: 'm3u8 视频在线提取工具', // 顶部提示 
       title: '', // 视频标题
       isPause: false, // 是否暂停下载
@@ -480,6 +497,7 @@ new Vue({
           return new TextEncoder().encode(str)
         },
       },
+      xgHlsJsPlayer: null
     }
   },
 
@@ -489,11 +507,59 @@ new Vue({
     setInterval(this.retryAll.bind(this), 2000) // 每两秒重新下载一遍错误片段，实现错误自动重试
   },
 
+  mounted() {
+    // this.videoPlayer();
+    this.initVideo();
+  },
+
   beforeDestroy() {
     window.removeEventListener('keyup', this.onKeyup)
   },
 
   methods: {
+    // 初始化西瓜视频
+    initVideo() {
+      this.xgHlsJsPlayer = new window.HlsJsPlayer({
+        id: 'mse',
+        url: this.url,
+        autoplay: true, // 是否自动播放
+        playsinline: true,
+        loop: true, // 是否循环播放
+        download: true, // 设置download控件显示
+        height: 500,
+        // height: window.innerHeight,
+        // width: window.innerWidth
+      });
+    },
+    // 播放视频
+    videoPlayer() {
+      console.log('%c url', 'color:green;font-size:16px;font-weight:700;', this.url);
+      if (!this.url) {
+          alert('请输入链接')
+          return
+        }
+        if (this.url.toLowerCase().indexOf('m3u8') === -1) {
+          alert('链接有误，请重新输入')
+          return
+        }
+        this.xgHlsJsPlayer.src = this.url;
+      // this.xgHlsJsPlayer = new window.HlsJsPlayer({
+      //   id: 'mse',
+      //   url: this.url,
+      //   autoplay: true,
+      //   playsinline: true,
+      //   height: 500,
+      //   // height: window.innerHeight,
+      //   // width: window.innerWidth
+      // });
+    },
+    
+    // 重置
+    reset() {
+      this.url = '';
+      this.downloading = false;
+    },
+    
     // 获取链接中携带的资源链接
     getSource() {
       let { href } = location
